@@ -155,10 +155,6 @@ participation metrics can be used for evaluating open-source project sustainabil
 | 4 | 23BQ1A4287 | Konakanchi Hemanth Kumar |
 
 **Project Guide:** Dr. K. Gnanendra
-**Project Coordinator / HOD-CSE (AI):** —
 
----
 
-*Transcribed from the signed Major Project Registration Form (`CSM_B2_ABSTRACT.pdf`) for
-version control and citation traceability. This is the source document referenced throughout
-`docs/research/` for the base paper and supporting-paper attributions.*
+
