@@ -67,13 +67,6 @@ The five planned dimensions are:
 | **D4** | Community Engagement / Popularity |
 | **D5** | Sustainability / Maintenance Risk |
 
-The framework is built on literature-derived constructs, with project-specific contributions
-identified explicitly wherever we go beyond what the literature provides.
-
-> ⚠️ **Not all five dimensions are measurable with the current prototype dataset.** Two are not
-> assessable at all and one is descriptive only. See [§4](#4-five-dimension-health-framework). These
-> are limitations of the *available data*, not of the proposed framework.
-
 ---
 
 ## 3. Research Foundation
