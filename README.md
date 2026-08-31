@@ -4,16 +4,6 @@
 
 Major Project · Batch CSM-B2 · Research-oriented category
 
----
-
-> **Status summary.** The research design, dataset feasibility analysis, measurement design,
-> feature-construction pipeline and health-dimension aggregation are **implemented and validated**.
-> The machine-learning component, backend and frontend are **planned and not started**. No model has
-> been trained. No Repository Health Index is claimed as validated. This README distinguishes
-> completed work from planned work throughout.
-
----
-
 ## Table of Contents
 
 | # | Section | | # | Section |
