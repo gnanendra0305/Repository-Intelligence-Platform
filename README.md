@@ -50,13 +50,6 @@ A **Repository Intelligence Platform** that:
 6. later investigates ML-based prediction using a scientifically defensible target,
 7. and finally exposes results through a backend API and a frontend dashboard.
 
-### Scope of the current state
-
-The current implementation is a **research-oriented analytical prototype**, not a finished product.
-It demonstrates the measurement methodology end-to-end on a small dataset. A validated system
-depends on obtaining substantially richer longitudinal data — described in
-[§5 Dataset Strategy](#5-dataset-strategy) and [§16 Final Data Collection Plan](#16-final-data-collection-plan).
-
 ---
 
 ## 2. Research Objective
