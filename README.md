@@ -1,4 +1,4 @@
-# Repository Intelligence Platform
+# AI-Assisted Developer Decision Support and Repository Intelligence Platform
 
 **A Research-Oriented Framework for Multi-Dimensional Open Source Repository Health Assessment and Intelligent Analysis**
 
