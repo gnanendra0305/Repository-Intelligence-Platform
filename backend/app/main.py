@@ -10,7 +10,16 @@ from .schemas.repository import (
     RepositoryAnalyzeResponse,
     ErrorResponse,
 )
+from .schemas.metric import (
+    MetricDefinition,
+    MetricListResponse,
+    MetricDetailResponse,
+    CHAOSSFamily,
+    LinakerArea,
+    MetricType,
+)
 from .services.github_service import github_service, GitHubAPIException
+from .services.metric_registry import metric_registry_service
 
 # Configure logging
 logging.basicConfig(
@@ -122,3 +131,65 @@ async def analyze_repository_get(url: str = Query(..., description="GitHub repos
     """
     req = RepositoryAnalyzeRequest(url=url)
     return await analyze_repository_post(req)
+
+
+@app.get(
+    f"{settings.API_V1_PREFIX}/metrics",
+    response_model=MetricListResponse,
+    tags=["Metric Registry (M0.1)"]
+)
+async def get_metrics(
+    chaoss_family: Optional[str] = Query(None, description="Filter by CHAOSS Metric Family (e.g. 'Evolution', 'Risk', 'Value', 'Common Metrics')"),
+    linaker_area: Optional[str] = Query(None, description="Filter by Linåker et al. (2026) Health Area (e.g. 'Community Productivity', 'Production Process')"),
+    metric_type: Optional[str] = Query(None, description="Filter by metric type ('health', 'context', 'data_quality', 'derived')")
+):
+    """
+    M0.1: Retrieve repository health and sustainability metrics from the canonical Metric Registry.
+    Supports primary filtering by CHAOSS Working Group Family and secondary filtering by Linåker Health Area.
+    """
+    metrics = metric_registry_service.get_all_metrics()
+    total = len(metrics)
+
+    if chaoss_family:
+        metrics = [m for m in metrics if m.chaoss_family.lower() == chaoss_family.strip().lower()]
+    if linaker_area:
+        metrics = [m for m in metrics if m.linaker_area.lower() == linaker_area.strip().lower()]
+    if metric_type:
+        metrics = [m for m in metrics if m.metric_type.lower() == metric_type.strip().lower()]
+
+    return MetricListResponse(
+        success=True,
+        count=len(metrics),
+        total_registered=total,
+        chaoss_family_filter=chaoss_family,
+        linaker_area_filter=linaker_area,
+        metric_type_filter=metric_type,
+        data=metrics
+    )
+
+
+@app.get(
+    f"{settings.API_V1_PREFIX}/metrics/{{metric_id}}",
+    response_model=MetricDetailResponse,
+    responses={
+        404: {"model": ErrorResponse, "description": "Metric not found in registry"}
+    },
+    tags=["Metric Registry (M0.1)"]
+)
+async def get_metric_by_id(metric_id: str):
+    """
+    M0.1: Retrieve detailed metadata, formula, payload dependencies, and research provenance for a single metric.
+    """
+    metric = metric_registry_service.get_metric_by_id(metric_id)
+    if not metric:
+        return JSONResponse(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content=ErrorResponse(
+                success=False,
+                error_code="METRIC_NOT_FOUND",
+                message=f"Metric '{metric_id}' was not found in the Metric Registry.",
+                details="Use GET /api/metrics to view all registered canonical metric IDs."
+            ).model_dump()
+        )
+    return MetricDetailResponse(success=True, data=metric)
+
