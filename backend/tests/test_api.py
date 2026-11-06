@@ -2,6 +2,8 @@ import pytest
 from fastapi.testclient import TestClient
 from backend.app.main import app
 from backend.app.utils.validators import parse_github_repo
+from backend.app.schemas.repository import RepositoryInfo
+from backend.app.services.github_service import RepositoryNotFoundError
 
 client = TestClient(app)
 
@@ -41,35 +43,60 @@ def test_invalid_url_api():
     assert data["success"] is False
     assert data["error_code"] == "INVALID_REPOSITORY_URL"
 
-def test_nonexistent_repository_api():
-    """Verify API handles non-existent repository with 404 Not Found."""
-    # Using a randomly generated nonexistent repository name
-    res = client.post("/api/repository/analyze", json={"url": "https://github.com/nonexistent-user-xyz-9999/nonexistent-repo-9999"})
+def test_nonexistent_repository_api(monkeypatch):
+    """Verify API handles non-existent repository with 404 Not Found (mocked GitHub)."""
+
+    async def fake_fetch(url_or_identifier: str):
+        raise RepositoryNotFoundError("nonexistent-user-xyz-9999", "nonexistent-repo-9999")
+
+    monkeypatch.setattr("backend.app.main.github_service.fetch_repository", fake_fetch)
+    res = client.post(
+        "/api/repository/analyze",
+        json={"url": "https://github.com/nonexistent-user-xyz-9999/nonexistent-repo-9999"},
+    )
     assert res.status_code == 404
     data = res.json()
     assert data["success"] is False
     assert "not found" in data["message"].lower()
+
 
 @pytest.mark.parametrize("repo_url,expected_name", [
     ("https://github.com/fastapi/fastapi", "fastapi"),
     ("pallets/flask", "flask"),
     ("https://github.com/psf/requests", "requests"),
 ])
-def test_live_public_repositories(repo_url, expected_name):
+def test_analyze_public_repositories_mocked(repo_url, expected_name, monkeypatch):
     """
-    Test Phase 1 requirement:
-    Test at least three public GitHub repositories and verify all required Phase 1 fields exist.
+    Phase 1 field checks against mocked GitHub payloads.
+    Does not call the live GitHub API.
     """
+
+    async def fake_fetch(url_or_identifier: str):
+        owner, repo = parse_github_repo(url_or_identifier)
+        info = RepositoryInfo(
+            name=expected_name,
+            full_name=f"{owner}/{repo}",
+            description="mocked",
+            stars=1,
+            forks=1,
+            language="Python",
+            created_at="2020-01-01T00:00:00Z",
+            last_updated_at="2024-01-01T00:00:00Z",
+            open_issues_count=0,
+            default_branch="main",
+            is_archived=False,
+            owner=owner,
+            html_url=f"https://github.com/{owner}/{repo}",
+            fetched_at="2024-01-01T00:00:00Z",
+        )
+        return info, {"remaining": 4999, "reset": "2024-01-01 00:00:00"}
+
+    monkeypatch.setattr("backend.app.main.github_service.fetch_repository", fake_fetch)
     res = client.post("/api/repository/analyze", json={"url": repo_url})
-    if res.status_code == 429:
-        pytest.skip("GitHub unauthenticated rate limit reached in test environment.")
-    
     assert res.status_code == 200
     body = res.json()
     assert body["success"] is True
     data = body["data"]
-    
-    # Verify Phase 1 required fields
     assert data["name"].lower() == expected_name.lower()
     assert "full_name" in data and "/" in data["full_name"]
     assert "description" in data
