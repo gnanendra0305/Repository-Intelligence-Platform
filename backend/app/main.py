@@ -22,6 +22,14 @@ from .schemas.mining import (
     RepositoryMiningRequest,
     RepositoryMiningResponse,
 )
+from .schemas.graphql_mining import (
+    GraphQLMiningRequest,
+    GraphQLMiningResponse,
+)
+from .schemas.archive import (
+    GHArchiveIngestionRequest,
+    GHArchiveIngestionResponse,
+)
 from .schemas.indicators import (
     CalculateIndicatorsRequest,
     CalculateIndicatorsResponse,
@@ -49,6 +57,8 @@ from .services.mining_service import mining_service
 from .services.indicator_service import indicator_service
 from .services.survival_service import survival_service
 from .services.report_service import report_service
+from .services.graphql_service import graphql_service
+from .services.archive_service import archive_service
 
 # Configure logging
 logging.basicConfig(
@@ -314,6 +324,94 @@ async def mine_repository_get(
     """
     req = RepositoryMiningRequest(url=url, max_pages_per_category=max_pages, per_page=per_page)
     return await mine_repository_post(req)
+
+
+@app.post(
+    f"{settings.API_V1_PREFIX}/repository/mine/graphql",
+    response_model=GraphQLMiningResponse,
+    responses={
+        400: {"model": ErrorResponse, "description": "Invalid repository input"},
+        404: {"model": ErrorResponse, "description": "Repository not found"},
+        429: {"model": ErrorResponse, "description": "GraphQL rate limit exceeded"},
+        500: {"model": ErrorResponse, "description": "GraphQL server error"},
+    },
+    tags=["Repository Mining (M0.2 GraphQL)"]
+)
+async def mine_repository_graphql_post(payload: GraphQLMiningRequest):
+    """
+    M0.2: GitHub GraphQL API repository mining pipeline.
+    Collects repository metadata, pull requests (with reviews), issues, commits,
+    and mentionable contributors in a single batched query with cursor pagination.
+    """
+    try:
+        return await graphql_service.mine_repository(payload)
+    except ValueError as ve:
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content=ErrorResponse(
+                success=False,
+                error_code="INVALID_REPOSITORY_URL",
+                message=str(ve),
+            ).model_dump()
+        )
+    except RuntimeError as re:
+        err_msg = str(re)
+        if "rate limit" in err_msg.lower():
+            return JSONResponse(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                content=ErrorResponse(
+                    success=False,
+                    error_code="GRAPHQL_RATE_LIMIT_EXCEEDED",
+                    message=err_msg,
+                ).model_dump()
+            )
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content=ErrorResponse(
+                success=False,
+                error_code="GRAPHQL_QUERY_ERROR",
+                message=err_msg,
+            ).model_dump()
+        )
+    except Exception as e:
+        logger.exception("Unexpected error in GraphQL mining: %s", str(e))
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content=ErrorResponse(
+                success=False,
+                error_code="INTERNAL_SERVER_ERROR",
+                message=str(e),
+            ).model_dump()
+        )
+
+
+@app.post(
+    f"{settings.API_V1_PREFIX}/archive/ingest",
+    response_model=GHArchiveIngestionResponse,
+    responses={
+        400: {"model": ErrorResponse, "description": "Invalid archive ingestion request"},
+        500: {"model": ErrorResponse, "description": "Archive processing error"},
+    },
+    tags=["GH Archive Historical Events (M0.2)"]
+)
+async def ingest_gh_archive_events(payload: GHArchiveIngestionRequest):
+    """
+    M0.2: Ingests and normalizes historical GitHub event streams from GH Archive / BigQuery.
+    Processes PushEvent, PullRequestEvent, IssuesEvent, IssueCommentEvent, PullRequestReviewEvent, and WatchEvent.
+    """
+    try:
+        return await archive_service.ingest_events(payload)
+    except Exception as e:
+        logger.exception("Error ingesting GH Archive events: %s", str(e))
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content=ErrorResponse(
+                success=False,
+                error_code="ARCHIVE_INGESTION_ERROR",
+                message=str(e),
+            ).model_dump()
+        )
+
 
 
 # =============================================================================
